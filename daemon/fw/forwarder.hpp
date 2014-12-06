@@ -38,6 +38,8 @@
 #include "table/dead-nonce-list.hpp"
 #include "table/network-region-table.hpp"
 
+#include "ns3/ndnSIM/model/cs/ndn-content-store.hpp"
+
 namespace nfd {
 
 namespace fw {
@@ -122,6 +124,10 @@ public: // forwarding entrypoints and tables
 
   NetworkRegionTable&
   getNetworkRegionTable();
+
+public: // allow enabling ndnSIM content store (will be removed in the future)
+  void
+  setCsFromNdnSim(ns3::Ptr<ns3::ndn::ContentStore> cs);
 
 PUBLIC_WITH_TESTS_ELSE_PRIVATE: // pipelines
   /** \brief incoming Interest pipeline
@@ -239,6 +245,8 @@ private:
   DeadNonceList      m_deadNonceList;
   NetworkRegionTable m_networkRegionTable;
 
+  ns3::Ptr<ns3::ndn::ContentStore> m_csFromNdnSim;
+
   static const Name LOCALHOST_NAME;
 
   // allow Strategy (base class) to enter pipelines
@@ -315,6 +323,12 @@ inline NetworkRegionTable&
 Forwarder::getNetworkRegionTable()
 {
   return m_networkRegionTable;
+}
+
+inline void
+Forwarder::setCsFromNdnSim(ns3::Ptr<ns3::ndn::ContentStore> cs)
+{
+  m_csFromNdnSim = cs;
 }
 
 #ifdef WITH_TESTS

@@ -144,9 +144,20 @@ Forwarder::onIncomingInterest(Face& inFace, const Interest& interest)
   const pit::InRecordCollection& inRecords = pitEntry->getInRecords();
   bool isPending = inRecords.begin() != inRecords.end();
   if (!isPending) {
-    m_cs.find(interest,
-              bind(&Forwarder::onContentStoreHit, this, ref(inFace), pitEntry, _1, _2),
-              bind(&Forwarder::onContentStoreMiss, this, ref(inFace), pitEntry, _1));
+    if (m_csFromNdnSim == nullptr) {
+      m_cs.find(interest,
+                bind(&Forwarder::onContentStoreHit, this, ref(inFace), pitEntry, _1, _2),
+                bind(&Forwarder::onContentStoreMiss, this, ref(inFace), pitEntry, _1));
+    }
+    else {
+      shared_ptr<Data> match = m_csFromNdnSim->Lookup(interest.shared_from_this());
+      if (match != nullptr) {
+        this->onContentStoreHit(inFace, pitEntry, interest, *match);
+      }
+      else {
+        this->onContentStoreMiss(inFace, pitEntry, interest);
+      }
+    }
   }
   else {
     this->onContentStoreMiss(inFace, pitEntry, interest);
@@ -398,7 +409,10 @@ Forwarder::onIncomingData(Face& inFace, const Data& data)
   }
 
   // CS insert
-  m_cs.insert(data);
+  if (m_csFromNdnSim == nullptr)
+    m_cs.insert(data);
+  else
+    m_csFromNdnSim->Add(data.shared_from_this());
 
   std::set<Face*> pendingDownstreams;
   // foreach PitEntry
@@ -448,7 +462,10 @@ Forwarder::onDataUnsolicited(Face& inFace, const Data& data)
   bool acceptToCache = inFace.getScope() == ndn::nfd::FACE_SCOPE_LOCAL;
   if (acceptToCache) {
     // CS insert
-    m_cs.insert(data, true);
+    if (m_csFromNdnSim == nullptr)
+      m_cs.insert(data, true);
+    else
+      m_csFromNdnSim->Add(data.shared_from_this());
   }
 
   NFD_LOG_DEBUG("onDataUnsolicited face=" << inFace.getId() <<
