@@ -90,7 +90,14 @@ FaceTable::addImpl(shared_ptr<Face> face, FaceId faceId)
   face->afterReceiveInterest.connect(bind(&Forwarder::startProcessInterest, &m_forwarder, ref(*face), _1));
   face->afterReceiveData.connect(bind(&Forwarder::startProcessData, &m_forwarder, ref(*face), _1));
   face->afterReceiveNack.connect(bind(&Forwarder::startProcessNack, &m_forwarder, ref(*face), _1));
-  connectFaceClosedSignal(*face, bind(&FaceTable::remove, this, face));
+
+  std::weak_ptr<Face> weakFace = face;
+  connectFaceClosedSignal(*face, [this, weakFace] {
+      shared_ptr<Face> face = weakFace.lock();
+      if (face != nullptr) {
+        this->remove(face);
+      }
+    });
 
   this->afterAdd(face);
 }
