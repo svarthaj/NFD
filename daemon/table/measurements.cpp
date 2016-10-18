@@ -81,8 +81,11 @@ shared_ptr<Entry>
 Measurements::get(const pit::Entry& pitEntry)
 {
   shared_ptr<name_tree::Entry> nte = m_nameTree.get(pitEntry);
+  // a workaround for PIT entry deleted from PIT, but still alive as an object
+  if (nte == nullptr) {
+    return nullptr;
+  }
 
-  BOOST_ASSERT(nte != nullptr);
   return this->get(*nte);
 }
 

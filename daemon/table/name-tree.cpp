@@ -324,6 +324,10 @@ shared_ptr<name_tree::Entry>
 NameTree::get(const pit::Entry& pitEntry)
 {
   shared_ptr<name_tree::Entry> nte = pitEntry.m_nameTreeEntry;
+  if (nte == nullptr) {
+    return nullptr;
+  }
+
   if (nte->getPrefix().size() == pitEntry.getName().size()) {
     return nte;
   }
