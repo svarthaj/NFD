@@ -281,32 +281,6 @@ Forwarder::onContentStoreHit(const Face& inFace,
   this->onOutgoingData(data, *const_pointer_cast<Face>(inFace.shared_from_this()));
 }
 
-/** \brief compare two InRecords for picking outgoing Interest
- *  \return true if b is preferred over a
- *
- *  This function should be passed to std::max_element over InRecordCollection.
- *  The outgoing Interest picked is the last incoming Interest
- *  that does not come from outFace.
- *  If all InRecords come from outFace, it's fine to pick that. This happens when
- *  there's only one InRecord that comes from outFace. The legit use is for
- *  vehicular network; otherwise, strategy shouldn't send to the sole inFace.
- */
-static inline bool
-compare_pickInterest(const pit::InRecord& a, const pit::InRecord& b, const Face* outFace)
-{
-  bool isOutFaceA = a.getFace().get() == outFace;
-  bool isOutFaceB = b.getFace().get() == outFace;
-
-  if (!isOutFaceA && isOutFaceB) {
-    return false;
-  }
-  if (isOutFaceA && !isOutFaceB) {
-    return true;
-  }
-
-  return a.getLastRenewed() > b.getLastRenewed();
-}
-
 void
 Forwarder::onOutgoingInterest(shared_ptr<pit::Entry> pitEntry, Face& outFace,
                               bool wantNewNonce)
@@ -326,12 +300,21 @@ Forwarder::onOutgoingInterest(shared_ptr<pit::Entry> pitEntry, Face& outFace,
   }
 
   // pick Interest
-  const pit::InRecordCollection& inRecords = pitEntry->getInRecords();
+  // The outgoing Interest picked is the last incoming Interest that does not come from outFace.
+  // If all in-records come from outFace, it's fine to pick that.
+  // This happens when there's only one in-record that comes from outFace.
+  // The legit use is for vehicular network; otherwise, strategy shouldn't send to the sole inFace.
+
   pit::InRecordCollection::const_iterator pickedInRecord = std::max_element(
-    inRecords.begin(), inRecords.end(), bind(&compare_pickInterest, _1, _2, &outFace));
-  BOOST_ASSERT(pickedInRecord != inRecords.end());
-  shared_ptr<Interest> interest = const_pointer_cast<Interest>(
-    pickedInRecord->getInterest().shared_from_this());
+    pitEntry->getInRecords().begin(), pitEntry->getInRecords().end(),
+    [&outFace] (const pit::InRecord& a, const pit::InRecord& b) {
+      bool isOutFaceA = a.getFace().get() == &outFace;
+      bool isOutFaceB = b.getFace().get() == &outFace;
+      return (isOutFaceA > isOutFaceB) ||
+             (isOutFaceA == isOutFaceB && a.getLastRenewed() < b.getLastRenewed());
+    });
+  BOOST_ASSERT(pickedInRecord != pitEntry->getInRecords().end());
+  auto interest = const_pointer_cast<Interest>(pickedInRecord->getInterest().shared_from_this());
 
   if (wantNewNonce) {
     interest = make_shared<Interest>(*interest);
