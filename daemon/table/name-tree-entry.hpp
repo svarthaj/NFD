@@ -189,6 +189,14 @@ public:
    */
   using Getter = ENTRY* (Entry::*)() const;
 
+  GetTableEntry()
+  : m_getter(nullptr)
+  {
+    // Workaround for ability to default-construct the iterator
+    // See https://redmine.named-data.net/issues/3882
+    // Note that behavior is undefined for dereferencing of the default-constructed iterator
+  }
+
   explicit
   GetTableEntry(Getter getter)
     : m_getter(getter)
