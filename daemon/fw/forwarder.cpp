@@ -344,10 +344,14 @@ Forwarder::onIncomingData(Face& inFace, const Data& data)
   dataCopyWithoutTag->removeTag<lp::HopCountTag>();
 
   // CS insert
-  if (m_csFromNdnSim == nullptr)
-    m_cs.insert(*dataCopyWithoutTag);
-  else
-    m_csFromNdnSim->Add(dataCopyWithoutTag);
+  // lleal change: localhost data (routing messages) not cached
+  if (!Name("/localhost").isPrefixOf(data.getName()))
+  {
+    if (m_csFromNdnSim == nullptr)
+      m_cs.insert(*dataCopyWithoutTag);
+    else
+      m_csFromNdnSim->Add(dataCopyWithoutTag);
+  }
 
   std::set<Face*> pendingDownstreams;
   // foreach PitEntry
@@ -396,6 +400,12 @@ Forwarder::onDataUnsolicited(Face& inFace, const Data& data)
 {
   // accept to cache?
   fw::UnsolicitedDataDecision decision = m_unsolicitedDataPolicy->decide(inFace, data);
+  
+  // lleal change: set caching to false for routing messages
+  if (Name("/localhost").isPrefixOf(data.getName())){
+    decision = fw::UnsolicitedDataDecision::DROP;
+  }
+  
   if (decision == fw::UnsolicitedDataDecision::CACHE) {
     // CS insert
     if (m_csFromNdnSim == nullptr)
